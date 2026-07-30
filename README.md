@@ -2,6 +2,8 @@
 
 一个开源的中文 SMTP 诊断工具，提供两个使用方式：
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/y08lin4/Main-SMTP-test/tree/main/worker)
+
 - **Windows 本地客户端**：单文件 Go EXE，从当前电脑发起连接，适合诊断本机 DNS、防火墙、证书和自定义端口。
 - **Cloudflare 在线版**：从 Cloudflare 网络发起受限连接，适合快速验证公网 SMTP 服务的标准提交端口。
 
@@ -74,6 +76,8 @@ npm install
 npx wrangler login
 npx wrangler deploy
 ```
+
+也可使用 README 顶部的 **Deploy to Cloudflare** 按钮：Cloudflare 会 fork/连接本仓库并引导完成首次 Worker 部署。首次部署完成后，仍需在 Worker 的 Settings > Variables and Secrets 中设置生产配置。
 
 部署前修改 `worker/wrangler.jsonc` 中的变量：
 
