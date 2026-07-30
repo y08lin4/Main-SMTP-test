@@ -41,8 +41,17 @@ func TestWriteMessageEncodesSubject(t *testing.T) {
 	if !strings.Contains(text, "Subject: =?UTF-8?B?") {
 		t.Fatalf("subject was not MIME encoded: %s", text)
 	}
-	if !strings.Contains(text, "\r\n.second") {
-		t.Fatalf("body line missing: %q", text)
+	for _, expected := range []string{
+		"Content-Type: multipart/alternative; boundary=",
+		"Content-Type: text/plain; charset=UTF-8",
+		"Content-Type: text/html; charset=UTF-8",
+		"<html lang=\"zh-CN\"><body>first<br>\r\n.second</body></html>",
+		"Message-ID: <",
+		"@example.com>",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("message missing %q: %q", expected, text)
+		}
 	}
 }
 

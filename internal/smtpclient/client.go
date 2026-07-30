@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/mail"
@@ -330,15 +331,16 @@ func writeMessage(writer io.WriteCloser, options Options) error {
 	if !isASCII(subject) {
 		subject = "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	}
+	fromDomain := options.From[strings.LastIndex(options.From, "@")+1:]
+	boundary := fmt.Sprintf("=_smtp_tester_%x", randomID)
 	headers := []string{
 		"Date: " + time.Now().UTC().Format(time.RFC1123Z),
-		fmt.Sprintf("Message-ID: <%x@%s>", randomID, options.Host),
+		fmt.Sprintf("Message-ID: <%x@%s>", randomID, fromDomain),
 		"From: <" + options.From + ">",
 		"To: <" + options.To + ">",
 		"Subject: " + subject,
 		"MIME-Version: 1.0",
-		"Content-Type: text/plain; charset=UTF-8",
-		"Content-Transfer-Encoding: 8bit",
+		fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"", boundary),
 		"X-Mailer: SMTP Tester Go",
 		"",
 	}
@@ -348,8 +350,25 @@ func writeMessage(writer io.WriteCloser, options Options) error {
 			return err
 		}
 	}
-	body := strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(options.Message)
-	if _, err := buffer.WriteString(strings.ReplaceAll(body, "\n", "\r\n")); err != nil {
+	plain := strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(options.Message)
+	plain = strings.ReplaceAll(plain, "\n", "\r\n")
+	htmlBody := strings.ReplaceAll(html.EscapeString(plain), "\r\n", "<br>\r\n")
+	body := []string{
+		"--" + boundary,
+		"Content-Type: text/plain; charset=UTF-8",
+		"Content-Transfer-Encoding: 8bit",
+		"",
+		plain,
+		"--" + boundary,
+		"Content-Type: text/html; charset=UTF-8",
+		"Content-Transfer-Encoding: 8bit",
+		"",
+		"<!doctype html>",
+		"<html lang=\"zh-CN\"><body>" + htmlBody + "</body></html>",
+		"--" + boundary + "--",
+		"",
+	}
+	if _, err := buffer.WriteString(strings.Join(body, "\r\n")); err != nil {
 		_ = writer.Close()
 		return err
 	}

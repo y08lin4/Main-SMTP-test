@@ -375,12 +375,13 @@ async function authenticate(session: SmtpSession, capabilities: string, username
 function buildMessage(input: SmtpInput): string {
   const subject = encodeHeaderText(input.subject);
   const from = input.fromName ? `${encodeHeaderPhrase(input.fromName)} <${input.from}>` : `<${input.from}>`;
+  const messageIDDomain = input.from.slice(input.from.lastIndexOf("@") + 1) || input.host;
   const plain = input.message.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n/g, "\r\n");
   const html = escapeHTML(input.message).replace(/\r\n|\r|\n/g, "<br>\r\n");
   const boundary = `=_smtp_tester_${crypto.randomUUID().replace(/-/g, "")}`;
   const headers = [
     `Date: ${new Date().toUTCString()}`,
-    `Message-ID: <${crypto.randomUUID()}@${input.host}>`,
+    `Message-ID: <${crypto.randomUUID()}@${messageIDDomain}>`,
     `From: ${from}`, `To: <${input.to}>`, `Subject: ${subject}`,
     ...(input.unsubscribe ? [`List-Unsubscribe: <${input.unsubscribe}>`] : []),
     "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`,
