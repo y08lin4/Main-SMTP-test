@@ -32,4 +32,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
-          command: deploy --var APP_VERSION:${{ github.sha }} --var GITHUB_URL:https://github.com/${{ github.repository }} --var DOWNLOAD_URL: --var PUBLIC_BASE_URL:${{ vars.PUBLIC_BASE_URL }} --var MAIL_TESTER_USERNAME:${{ vars.MAIL_TESTER_USERNAME }} --var MAIL_TESTER_INBOX_DOMAIN:${{ vars.MAIL_TESTER_INBOX_DOMAIN }}
+          command: deploy --var APP_VERSION:${{ github.sha }} --var GITHUB_URL:https://github.com/${{ github.repository }} --var DOWNLOAD_URL:https://github.com/${{ github.repository }}/releases/latest/download/SMTP-Tester-Windows-x64.exe

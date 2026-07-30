@@ -3,6 +3,7 @@
   "name": "smtp-tester-online",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-29",
+  "keep_vars": true,
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
@@ -23,12 +24,9 @@
     }
   ],
   "vars": {
-    "APP_VERSION": "dev",
+    "APP_VERSION": "v0.1.0",
     "GITHUB_URL": "https://github.com/y08lin4/Main-SMTP-test",
-    "DOWNLOAD_URL": "",
-    "PUBLIC_BASE_URL": "",
-    "MAIL_TESTER_USERNAME": "",
-    "MAIL_TESTER_INBOX_DOMAIN": ""
+    "DOWNLOAD_URL": "https://github.com/y08lin4/Main-SMTP-test/releases/latest/download/SMTP-Tester-Windows-x64.exe"
   },
   "observability": {
     "enabled": true,

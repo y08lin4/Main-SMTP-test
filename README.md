@@ -79,13 +79,12 @@ npx wrangler deploy
 
 也可使用 README 顶部的 **Deploy to Cloudflare** 按钮：Cloudflare 会 fork/连接本仓库并引导完成首次 Worker 部署。首次部署完成后，仍需在 Worker 的 Settings > Variables and Secrets 中设置生产配置。
 
-部署前修改 `worker/wrangler.jsonc` 中的变量：
+基础变量已经包含适用于本仓库的默认值。`PUBLIC_BASE_URL` 无需在首次部署时填写，未设置时会自动使用实际访问域名。
+
+首次部署完成后，如需使用自定义域名，可在 Worker 的 Settings > Variables and Secrets 中添加：
 
 ```json
 "vars": {
-  "APP_VERSION": "v0.1.0",
-  "GITHUB_URL": "https://github.com/y08lin4/Main-SMTP-test",
-  "DOWNLOAD_URL": "",
   "PUBLIC_BASE_URL": "https://smtp.example.com"
 }
 ```
@@ -96,7 +95,7 @@ npx wrangler deploy
 
 ### mail-tester 官方 API
 
-投递质量页面使用 [mail-tester 官方 API](https://www.mail-tester.com/api-documentation)，不会抓取报告网页或规避上游限制。使用前先创建 mail-tester 账号，并在 `worker/wrangler.jsonc` 配置账号用户名及该账号实际显示的收件域：
+投递质量页面使用 [mail-tester 官方 API](https://www.mail-tester.com/api-documentation)，不会抓取报告网页或规避上游限制。它不属于首次部署必填项。部署完成后，先创建 mail-tester 账号，再在 Worker 的 Settings > Variables and Secrets 中添加账号用户名及该账号实际显示的收件域：
 
 ```json
 "MAIL_TESTER_USERNAME": "your-account-name",
