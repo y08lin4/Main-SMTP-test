@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="生成临时测试地址，通过 mail-tester 官方 API 检查 SPF、DKIM、SpamAssassin、邮件正文、黑名单与链接。">
+  <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="邮件投递质量检测 - SMTP 发信测试器">
+  <meta property="og:description" content="使用 mail-tester 官方 API 分析邮件身份认证、内容与发送信誉。">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>邮件投递质量检测 - SMTP 发信测试器</title>
+  <style>
+    :root{--bg:oklch(97.5% .007 255);--surface:oklch(100% 0 0);--soft:oklch(96.5% .01 255);--ink:oklch(28% .035 257);--muted:oklch(45% .025 255);--line:oklch(88% .018 255);--line2:oklch(80% .028 255);--blue:oklch(55% .2 258);--blue2:oklch(47% .19 258);--blue-soft:oklch(95% .03 258);--green:oklch(49% .14 155);--green-soft:oklch(95% .035 155);--red:oklch(52% .18 25);--red-soft:oklch(95% .04 25);--amber:oklch(55% .13 75);--amber-soft:oklch(96% .045 75)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;letter-spacing:0}button,input{font:inherit;letter-spacing:0}a{color:inherit}.app{width:min(1040px,100%);margin:0 auto;padding:28px 24px 48px}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;margin-bottom:18px}.brand-line{display:flex;align-items:center;gap:9px;margin-bottom:7px;color:var(--blue2);font-size:13px;font-weight:700}.dot{width:9px;height:9px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 4px var(--blue-soft)}h1{margin:0;font-size:30px;line-height:1.2}.lead{max-width:68ch;margin:7px 0 0;color:var(--muted);font-size:14px}.nav{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.nav a{display:inline-flex;min-height:42px;align-items:center;padding:0 13px;border:1px solid var(--line2);border-radius:7px;background:var(--surface);font-size:13px;font-weight:650;text-decoration:none}.nav a:hover{border-color:var(--blue);color:var(--blue2)}
+    .workflow{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.35fr);align-items:start;gap:18px}.panel{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:24px}.panel h2{margin:0;font-size:20px;line-height:1.3}.sub{margin:5px 0 0;color:var(--muted);font-size:13px}.steps{margin:22px 0 20px;border-top:1px solid var(--line)}.step{display:flex;min-height:60px;align-items:center;gap:12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:650}.step i{display:grid;width:26px;height:26px;flex:0 0 auto;place-items:center;border:1px solid var(--line2);border-radius:50%;background:var(--soft);color:var(--muted);font-style:normal}.step.active{color:var(--blue2)}.step.active i{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}.step.done{color:var(--ink)}.step.done i{border-color:var(--green);background:var(--green);color:white}
+    .button{display:inline-flex;min-height:46px;align-items:center;justify-content:center;padding:0 18px;border:1px solid var(--blue);border-radius:7px;background:var(--blue);color:white;cursor:pointer;font-weight:700}.button:hover:not(:disabled){border-color:var(--blue2);background:var(--blue2)}.button:disabled{cursor:wait;opacity:.68}.button.secondary{border-color:var(--line2);background:var(--surface);color:var(--ink)}.button.secondary:hover:not(:disabled){border-color:var(--blue);background:var(--blue-soft)}.actions{display:flex;flex-wrap:wrap;gap:9px}.actions[hidden]{display:none}.address-box{display:none;margin:18px 0}.address-box.show{display:block}.address-box label{display:block;margin-bottom:7px;font-size:13px;font-weight:650}.address-row{display:flex;gap:8px}.address-row input{min-width:0;min-height:46px;flex:1;border:1px solid var(--line2);border-radius:7px;background:var(--soft);padding:0 11px;color:var(--ink)}.address-row .button{flex:0 0 auto}.expiry{margin:7px 0 0;color:var(--muted);font-size:12px}
+    .state{display:flex;min-height:250px;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}.state-mark{display:grid;width:68px;height:68px;place-items:center;margin-bottom:14px;border:2px solid oklch(83% .06 258);border-radius:50%;background:var(--blue-soft);color:var(--blue);font-size:27px;font-weight:750}.state h2{margin:0;font-size:19px}.state p{max-width:48ch;margin:7px 0 0;color:var(--muted);font-size:13px}.state.error .state-mark{border-color:oklch(76% .1 25);background:var(--red-soft);color:var(--red)}.state.ready .state-mark{border-color:oklch(72% .1 155);background:var(--green-soft);color:var(--green)}
+    .report{display:none}.report.show{display:block}.score-line{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:20px;border-bottom:1px solid var(--line)}.score{font-size:34px;line-height:1;font-weight:760;color:var(--blue2)}.score-label{color:var(--muted);font-size:12px}.report-title{margin:0 0 4px;font-size:18px}.report-summary{margin:0;color:var(--muted);font-size:13px}.checks{margin-top:6px}.check{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:start;gap:11px;padding:16px 0;border-bottom:1px solid var(--line)}.check-mark{display:grid;width:24px;height:24px;place-items:center;border-radius:50%;background:var(--soft);color:var(--muted);font-size:12px;font-weight:750}.check.success .check-mark{background:var(--green-soft);color:var(--green)}.check.failure .check-mark{background:var(--red-soft);color:var(--red)}.check.warning .check-mark{background:var(--amber-soft);color:var(--amber)}.check h3{margin:1px 0 3px;font-size:14px}.check p{margin:0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.check-score{padding-top:2px;color:var(--muted);font-size:12px;font-weight:700}.provider{margin-top:16px;color:var(--muted);font-size:12px}.provider a{color:var(--blue2);font-weight:650}
+    .notice{margin-top:18px;padding:13px 14px;border:1px solid oklch(84% .07 75);border-radius:7px;background:var(--amber-soft);color:oklch(40% .06 75);font-size:12px}.notice strong{display:block;color:var(--ink)}footer{display:flex;justify-content:space-between;gap:18px;margin-top:18px;color:var(--muted);font-size:12px}footer a{color:var(--blue2);font-weight:650;text-decoration:none}:focus-visible{outline:3px solid oklch(66% .17 255 / 35%);outline-offset:2px}
+    @media(max-width:820px){.workflow{grid-template-columns:1fr}header{flex-direction:column}.nav{justify-content:flex-start}}@media(max-width:560px){.app{padding:20px 14px 32px}.panel{padding:20px 16px}.address-row{flex-direction:column}.score-line{align-items:flex-start;flex-direction:column}.check{grid-template-columns:28px minmax(0,1fr)}.check-score{grid-column:2}.actions .button{width:100%}footer{flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div><div class="brand-line"><span class="dot"></span><span>邮件投递质量</span></div><h1>发送前，先检查这封邮件</h1><p class="lead">通过 mail-tester 官方 API 检查身份认证、SpamAssassin、正文结构、黑名单与链接。</p></div>
+      <nav class="nav" aria-label="主要导航"><a href="/">SMTP 连接测试</a><a href="https://github.com/y08lin4/Main-SMTP-test" target="_blank" rel="noreferrer">GitHub 源码</a></nav>
+    </header>
+
+    <div class="workflow">
+      <section class="panel" aria-labelledby="workflow-title">
+        <h2 id="workflow-title">测试流程</h2><p class="sub">测试地址与报告令牌在 30 分钟后失效</p>
+        <div class="steps">
+          <div id="step-create" class="step active"><i>1</i><span>生成临时测试地址</span></div>
+          <div id="step-send" class="step"><i>2</i><span>从待检测系统发送邮件</span></div>
+          <div id="step-report" class="step"><i>3</i><span>接收并查看质量报告</span></div>
+        </div>
+        <div class="actions"><button id="create" class="button" type="button">生成测试地址</button></div>
+        <div id="address-box" class="address-box">
+          <label for="address">临时收件地址</label>
+          <div class="address-row"><input id="address" readonly><button id="copy" class="button secondary" type="button">复制地址</button></div>
+          <p id="expiry" class="expiry"></p>
+        </div>
+        <div id="report-actions" class="actions" hidden><button id="refresh" class="button" type="button">检查报告</button><button id="new-session" class="button secondary" type="button">重新生成</button></div>
+        <div class="notice"><strong>第三方数据处理</strong>测试邮件由 mail-tester 接收和分析，并受其隐私政策与服务条款约束。敏感邮件请勿使用此功能。</div>
+      </section>
+
+      <section class="panel" aria-live="polite" aria-labelledby="result-title">
+        <div id="state" class="state"><div class="state-mark">→</div><h2 id="result-title">等待生成测试地址</h2><p id="state-copy">报告将在 mail-tester 收到邮件后显示</p></div>
+        <div id="report" class="report">
+          <div class="score-line"><div><h2 id="report-title" class="report-title">检测完成</h2><p id="report-summary" class="report-summary"></p></div><div><div id="score" class="score">—</div><div class="score-label">mail-tester 得分</div></div></div>
+          <div id="checks" class="checks"></div>
+          <p class="provider">报告数据来自 <a href="https://www.mail-tester.com/api-documentation" target="_blank" rel="noreferrer">mail-tester 官方 API</a>，本项目仅做安全代理与结构化展示。</p>
+        </div>
+      </section>
+    </div>
+
+    <footer><span>SMTP Tester · 官方 API 集成</span><span><a href="/privacy.html">隐私与安全</a> · <a href="/">返回连接测试</a></span></footer>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      let token = "";
+      let expiresAt = 0;
+      let pollTimer = 0;
+      const categories = [
+        ["messageInfo", "邮件信息"], ["spamAssassin", "SpamAssassin"], ["signature", "身份认证"],
+        ["body", "正文结构"], ["blacklists", "黑名单"], ["links", "邮件链接"]
+      ];
+
+      function setState(kind, title, copy) {
+        $("report").className = "report";
+        $("state").style.display = "flex";
+        $("state").className = "state " + kind;
+        $("state").querySelector(".state-mark").textContent = kind === "error" ? "!" : kind === "ready" ? "✓" : "→";
+        $("result-title").textContent = title;
+        $("state-copy").textContent = copy;
+      }
+      function step(id, state) {
+        const element = $(id);
+        element.className = "step " + state;
+        if (state === "done") element.querySelector("i").textContent = "✓";
+      }
+      function textValue(value) {
+        if (typeof value === "string" || typeof value === "number") return String(value);
+        return "";
+      }
+      function renderReport(data) {
+        const report = data.report || {};
+        $("state").style.display = "none";
+        $("report").className = "report show";
+        $("score").textContent = textValue(report.score || report.mark || report.displayedMark) || "—";
+        $("report-title").textContent = textValue(report.title) || "邮件质量检测完成";
+        $("report-summary").textContent = textValue(report.description || report.message) || "查看各项检测结果并按建议调整邮件配置。";
+        $("checks").replaceChildren();
+        categories.forEach(([key, label]) => {
+          const value = report[key];
+          if (!value || typeof value !== "object") return;
+          const status = ["success", "warning", "failure"].includes(value.statusClass) ? value.statusClass : "neutral";
+          const row = document.createElement("div"); row.className = "check " + status;
+          const mark = document.createElement("span"); mark.className = "check-mark"; mark.textContent = status === "success" ? "✓" : status === "failure" ? "!" : status === "warning" ? "·" : "—";
+          const body = document.createElement("div"); const heading = document.createElement("h3"); heading.textContent = label; const copy = document.createElement("p"); copy.textContent = textValue(value.title || value.description) || "已返回检测数据"; body.append(heading, copy);
+          const score = document.createElement("span"); score.className = "check-score"; score.textContent = textValue(value.displayedMark || value.mark);
+          row.append(mark, body, score); $("checks").appendChild(row);
+        });
+        step("step-report", "done");
+        window.clearTimeout(pollTimer);
+      }
+      async function refreshReport(automatic = false) {
+        if (!token || Date.now() >= expiresAt) { setState("error", "测试地址已过期", "请重新生成测试地址后再次发送邮件。"); return; }
+        $("refresh").disabled = true;
+        if (!automatic) setState("", "正在查询报告", "正在通过官方 API 检查邮件是否已经到达…");
+        try {
+          const response = await fetch("/api/deliverability/reports?token=" + encodeURIComponent(token), { headers: { "Accept": "application/json" } });
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.message || "报告查询失败");
+          if (data.ready) { renderReport(data); return; }
+          step("step-send", "active");
+          setState("", "等待邮件到达", textValue(data.report && data.report.title) || "尚未收到测试邮件，将在 10 秒后再次检查。");
+          pollTimer = window.setTimeout(() => refreshReport(true), 10000);
+        } catch (error) {
+          setState("error", "暂时无法获取报告", error instanceof Error ? error.message : "请稍后重试");
+        } finally { $("refresh").disabled = false; }
+      }
+      async function createSession() {
+        window.clearTimeout(pollTimer); $("create").disabled = true;
+        setState("", "正在生成测试地址", "正在向服务端申请短期签名地址…");
+        try {
+          const response = await fetch("/api/deliverability/sessions", { method: "POST", headers: { "Accept": "application/json" } });
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.message || "无法生成测试地址");
+          token = data.token; expiresAt = Date.parse(data.expiresAt); $("address").value = data.address;
+          $("expiry").textContent = "有效期至 " + new Date(expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+          $("address-box").className = "address-box show"; $("report-actions").hidden = false; $("create").hidden = true;
+          step("step-create", "done"); step("step-send", "active");
+          setState("", "等待测试邮件", "将待检测邮件发送到左侧地址，系统会自动检查到达状态。");
+          pollTimer = window.setTimeout(() => refreshReport(true), 10000);
+        } catch (error) { setState("error", "无法生成测试地址", error instanceof Error ? error.message : "请稍后重试"); }
+        finally { $("create").disabled = false; }
+      }
+      $("create").addEventListener("click", createSession);
+      $("new-session").addEventListener("click", () => { token = ""; expiresAt = 0; $("address-box").className = "address-box"; $("report-actions").hidden = true; $("create").hidden = false; step("step-create", "active"); setState("", "等待生成测试地址", "报告将在 mail-tester 收到邮件后显示"); });
+      $("refresh").addEventListener("click", () => refreshReport(false));
+      $("copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("address").value); $("copy").textContent = "已复制"; window.setTimeout(() => { $("copy").textContent = "复制地址"; }, 1800); } catch { $("address").select(); } });
+      fetch("/api/meta").then((response) => response.json()).then((meta) => { if (!meta.deliverabilityEnabled) { $("create").disabled = true; setState("error", "服务尚未配置", "部署者需要设置 mail-tester 账号与 Worker 签名 Secret。"); } }).catch(() => setState("error", "无法连接服务", "请检查网络后重试。"));
+    })();
+  </script>
+</body>
+</html>

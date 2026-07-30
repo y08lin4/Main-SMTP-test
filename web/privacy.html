@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="SMTP 发信测试器的凭据处理、数据保留和在线服务安全说明。">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="隐私与安全 - SMTP 发信测试器">
+  <meta property="og:description" content="了解在线版与 Windows 本地版如何处理 SMTP 凭据、请求和测试结果。">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>隐私与安全 - SMTP 发信测试器</title>
+  <style>
+    :root{--bg:oklch(97.5% .007 255);--surface:oklch(100% 0 0);--ink:oklch(28% .035 257);--muted:oklch(45% .025 255);--line:oklch(88% .018 255);--blue:oklch(50% .19 258)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.75 "Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;letter-spacing:0}
+    main{width:min(780px,100%);margin:0 auto;padding:40px 20px 64px}nav{margin-bottom:28px}a{color:var(--blue);font-weight:650;text-decoration:none}a:hover{text-decoration:underline}
+    article{padding:32px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}h1{margin:0 0 8px;font-size:30px;line-height:1.25}h2{margin:32px 0 8px;font-size:19px;line-height:1.35}p,li{max-width:72ch}p{margin:8px 0;color:var(--muted)}ul{padding-left:22px;color:var(--muted)}.updated{font-size:13px}
+    @media(max-width:600px){main{padding:24px 14px 40px}article{padding:22px 17px}}
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="/">← 返回 SMTP 发信测试器</a></nav>
+    <article>
+      <h1>隐私与安全</h1>
+      <p class="updated">更新日期：2026 年 7 月 30 日</p>
+
+      <h2>Windows 本地版</h2>
+      <p>SMTP 配置、账号、密码、邮件内容和测试结果只在当前电脑的进程内存中处理。客户端不会把这些数据写入配置文件，也不会发送给本项目运营方。浏览器只连接本机的 <code>127.0.0.1</code> 服务。</p>
+
+      <h2>Cloudflare 在线版</h2>
+      <p>提交在线测试时，SMTP 配置、账号、密码和邮件内容会通过 HTTPS 发送到 Cloudflare Worker，再由 Worker 与目标 SMTP 服务器建立连接。在线版不会主动持久化请求体、密码、邮件内容或测试结果，也不会在应用日志中记录 SMTP 认证命令。</p>
+      <p>Cloudflare 可能根据其基础设施政策处理网络与安全日志。敏感账号、生产账号、自签名证书、内网服务器或受合规要求约束的邮件，请使用 Windows 本地版。</p>
+
+      <h2>在线服务保护</h2>
+      <ul>
+        <li>在线版仅允许公网域名和 465/587 标准加密端口。</li>
+        <li>DNS 解析到私网、保留或文档地址的目标会被拒绝。</li>
+        <li>按来源限制测试频率，并限制请求与字段大小。</li>
+        <li>测试成功只表示 SMTP 服务器接受邮件，不表示最终进入收件箱。</li>
+      </ul>
+
+      <h2>投递质量检测</h2>
+      <p>启用投递质量功能后，系统会通过 mail-tester 官方 API 创建与查询测试报告。用户发送到临时地址的邮件由 mail-tester 接收和分析，并受其隐私政策与服务条款约束。本项目只保存浏览器当前会话中的短期签名令牌；完成报告在 Cloudflare Cache 中最多缓存 5 分钟。</p>
+
+      <h2>开源与问题报告</h2>
+      <p>源代码公开后，可通过页面顶部的 GitHub 链接审计实现或提交安全问题。部署者应在 GitHub 仓库中配置安全报告渠道，并避免在公开 Issue 中粘贴真实 SMTP 密码、授权码或完整邮件内容。</p>
+    </article>
+  </main>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Go
+/smtp-tester.exe
+/dist/
+/coverage.out
+
+# Cloudflare / Node
+/worker/node_modules/
+/worker/.wrangler/
+/worker/.dev.vars
+/.wrangler-dry-run/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
