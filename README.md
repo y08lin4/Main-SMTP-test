@@ -49,7 +49,11 @@ go build -trimpath -o SMTP-Tester-Windows-x64.exe .
 
 ## Cloudflare 在线版
 
-在线版使用 Workers TCP Sockets 连接目标 SMTP 服务，静态页面由 Workers Assets 提供。
+在线版使用 Workers TCP Sockets 连接目标 SMTP 服务，静态页面由 Workers Assets 提供。为兼容 Cloudflare 一键部署，`worker/web/` 内置了部署所需的前端副本；修改根目录 `web/` 后运行以下命令并一同提交：
+
+```powershell
+.\scripts\sync-worker-assets.ps1
+```
 
 ### 安全边界
 
