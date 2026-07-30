@@ -384,7 +384,7 @@ function buildMessage(input: SmtpInput): string {
     `From: ${from}`, `To: <${input.to}>`, `Subject: ${subject}`,
     ...(input.unsubscribe ? [`List-Unsubscribe: <${input.unsubscribe}>`] : []),
     "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    "X-Mailer: SMTP Tester Online", "",
+    "X-Mailer: smtp tester online", "",
   ];
   const body = [
     `--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", plain,

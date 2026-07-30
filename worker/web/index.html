@@ -253,7 +253,7 @@
             <label class="field message-field"><span>邮件内容 <b>*</b></span><textarea id="message" name="message" required maxlength="65536">您好：
 
 这是一封用于确认邮件服务配置的连通性测试邮件。
-如您收到此邮件，说明 SMTP 服务已接受并投递该消息。</textarea></label>
+如您收到此邮件，说明邮件服务已接受并投递该消息。</textarea></label>
             <label class="field message-field"><span>退订地址（可选，仅订阅或群发邮件）</span><input id="unsubscribe" name="unsubscribe" inputmode="url" maxlength="512" placeholder="https://example.com/unsubscribe 或 mailto:unsubscribe@example.com"><small>仅填写真实可用的退订地址；普通单次测试无需填写。</small></label>
           </fieldset>
 
@@ -413,7 +413,7 @@
         $("port").value = "587";
         $("security").value = "starttls";
         $("subject").value = "邮件服务连通性确认";
-        $("message").value = "您好：\n\n这是一封用于确认邮件服务配置的连通性测试邮件。\n如您收到此邮件，说明 SMTP 服务已接受并投递该消息。";
+        $("message").value = "您好：\n\n这是一封用于确认邮件服务配置的连通性测试邮件。\n如您收到此邮件，说明邮件服务已接受并投递该消息。";
         $("unsubscribe").value = "";
         $("password").type = "password";
         $("password-toggle").textContent = "显示";
