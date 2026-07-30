@@ -5,14 +5,9 @@ type CloudflareSocket = ReturnType<typeof connect>;
 interface Env {
   ASSETS: Fetcher;
   RATE_LIMITER: RateLimit;
-  REPORT_RATE_LIMITER: RateLimit;
   APP_VERSION?: string;
   GITHUB_URL?: string;
-  DOWNLOAD_URL?: string;
   PUBLIC_BASE_URL?: string;
-  MAIL_TESTER_USERNAME?: string;
-  MAIL_TESTER_INBOX_DOMAIN?: string;
-  MAIL_TESTER_TOKEN_SECRET?: string;
 }
 
 interface SmtpInput {
@@ -22,6 +17,8 @@ interface SmtpInput {
   username: string;
   password: string;
   from: string;
+  fromName?: string;
+  unsubscribe?: string;
   to: string;
   subject: string;
   message: string;
@@ -135,8 +132,7 @@ export default {
       return text(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${publicBase}/sitemap.xml\n`, "text/plain; charset=utf-8");
     }
     if (url.pathname === "/sitemap.xml" && request.method === "GET") {
-      const deliverability = mailTesterEnabled(env) ? `<url><loc>${escapeXML(publicBase)}/deliverability.html</loc></url>` : "";
-      return text(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeXML(publicBase)}/</loc></url>${deliverability}<url><loc>${escapeXML(publicBase)}/privacy.html</loc></url></urlset>\n`, "application/xml; charset=utf-8");
+      return text(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeXML(publicBase)}/</loc></url><url><loc>${escapeXML(publicBase)}/privacy.html</loc></url></urlset>\n`, "application/xml; charset=utf-8");
     }
     if (url.pathname === "/api/meta" && request.method === "GET") {
       const githubUrl = (env.GITHUB_URL || "").replace(/\/$/, "");
@@ -144,26 +140,16 @@ export default {
         mode: "online",
         version: env.APP_VERSION || "dev",
         githubUrl,
-        downloadUrl: env.DOWNLOAD_URL || (githubUrl ? `${githubUrl}/releases/latest/download/SMTP-Tester-Windows-x64.exe` : ""),
         allowPlain: false,
         allowCustomPort: false,
-        deliverabilityEnabled: mailTesterEnabled(env),
       });
     }
     if (url.pathname === "/api/send" && request.method === "POST") {
       return handleSend(request, env);
     }
-    if (url.pathname === "/api/deliverability/sessions" && request.method === "POST") {
-      return createDeliverabilitySession(request, env);
-    }
-    if (url.pathname === "/api/deliverability/reports" && request.method === "GET") {
-      return getDeliverabilityReport(request, env);
-    }
     if (url.pathname.startsWith("/api/")) return json({ success: false, message: "接口不存在" }, 404);
-
-    if (url.pathname === "/deliverability.html" && !mailTesterEnabled(env)) {
-      return withSecurityHeaders(new Response("投递质量检测尚未配置", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex" } }));
-    }
+    if (url.pathname === "/deliverability.html") return withSecurityHeaders(new Response("页面已迁移到独立实验项目", { status: 410, headers: { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" } }));
+    if (url.pathname === "/index.html") return Response.redirect(`${url.origin}/`, 301);
 
     const response = await env.ASSETS.fetch(request);
     const secured = withSecurityHeaders(response);
@@ -215,120 +201,6 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
   }
 }
 
-function mailTesterEnabled(env: Env): boolean {
-  return Boolean(env.MAIL_TESTER_USERNAME && env.MAIL_TESTER_INBOX_DOMAIN && env.MAIL_TESTER_TOKEN_SECRET);
-}
-
-async function createDeliverabilitySession(request: Request, env: Env): Promise<Response> {
-  if (!mailTesterEnabled(env)) return json({ success: false, message: "投递质量检测尚未配置" }, 503);
-  if (!validOrigin(request)) return json({ success: false, message: "请求来源不受信任" }, 403);
-  const clientKey = request.headers.get("CF-Connecting-IP") || "anonymous";
-  const rate = await env.RATE_LIMITER.limit({ key: clientKey });
-  if (!rate.success) return json({ success: false, message: "创建测试地址过于频繁，请稍后再试" }, 429);
-
-  const username = env.MAIL_TESTER_USERNAME!.trim().toLowerCase();
-  const inboxDomain = env.MAIL_TESTER_INBOX_DOMAIN!.trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(username) || !isDomain(inboxDomain)) {
-    return json({ success: false, message: "mail-tester 账号配置不正确" }, 503);
-  }
-  const suffix = randomToken(10);
-  const id = `${username}-${suffix}`;
-  const expiresAt = Date.now() + 30 * 60 * 1000;
-  const token = await signReportToken(id, expiresAt, env.MAIL_TESTER_TOKEN_SECRET!);
-  return json({
-    success: true,
-    address: `${id}@${inboxDomain}`,
-    token,
-    expiresAt: new Date(expiresAt).toISOString(),
-    provider: "mail-tester",
-  });
-}
-
-async function getDeliverabilityReport(request: Request, env: Env): Promise<Response> {
-  if (!mailTesterEnabled(env)) return json({ success: false, message: "投递质量检测尚未配置" }, 503);
-  const url = new URL(request.url);
-  const token = url.searchParams.get("token") || "";
-  const id = await verifyReportToken(token, env.MAIL_TESTER_TOKEN_SECRET!);
-  if (!id) return json({ success: false, message: "报告令牌无效或已过期" }, 403);
-
-  const clientKey = request.headers.get("CF-Connecting-IP") || "anonymous";
-  const rate = await env.REPORT_RATE_LIMITER.limit({ key: clientKey });
-  if (!rate.success) return json({ success: false, message: "报告查询过于频繁，请稍后再试" }, 429);
-
-  const cache = await caches.open("mail-tester-reports");
-  const cacheKey = new Request(`${url.origin}/api/deliverability/cache/${encodeURIComponent(token)}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) return withSecurityHeaders(cached);
-
-  const upstream = await fetch(`https://www.mail-tester.com/${encodeURIComponent(id)}?format=json&lang=zh`, {
-    headers: {
-      "Accept": "application/json",
-      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.5",
-      "User-Agent": `SMTP-Tester-OpenSource/${env.APP_VERSION || "dev"} (${env.GITHUB_URL || "https://github.com/y08lin4/Main-SMTP-test"})`,
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (upstream.status === 429) return json({ success: false, message: "mail-tester API 配额或频率已受限，请稍后再试" }, 429);
-  if (!upstream.ok) return json({ success: false, message: "mail-tester API 暂时不可用", detail: `HTTP ${upstream.status}` }, 502);
-
-  let report: Record<string, unknown>;
-  try {
-    report = await upstream.json() as Record<string, unknown>;
-  } catch {
-    return json({ success: false, message: "mail-tester API 返回了无法解析的结果" }, 502);
-  }
-  const ready = report.status !== false;
-  const response = json({
-    success: true,
-    ready,
-    provider: "mail-tester",
-    providerUrl: "https://www.mail-tester.com/api-documentation",
-    report,
-  });
-  if (!ready) return response;
-
-  const cachedResponse = new Response(response.body, response);
-  cachedResponse.headers.set("Cache-Control", "public, max-age=300");
-  await cache.put(cacheKey, cachedResponse.clone());
-  return withSecurityHeaders(cachedResponse);
-}
-
-async function signReportToken(id: string, expiresAt: number, secret: string): Promise<string> {
-  const payload = `${id}.${expiresAt}`;
-  return `${payload}.${await hmac(payload, secret)}`;
-}
-
-async function verifyReportToken(token: string, secret: string): Promise<string | null> {
-  const match = /^([a-z0-9-]+)\.(\d{13})\.([A-Za-z0-9_-]+)$/.exec(token);
-  if (!match || Number(match[2]) < Date.now()) return null;
-  const payload = `${match[1]}.${match[2]}`;
-  const expected = await hmac(payload, secret);
-  return timingSafeEqual(match[3], expected) ? match[1] : null;
-}
-
-async function hmac(payload: string, secret: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  return base64URL(new Uint8Array(signature));
-}
-
-function randomToken(byteLength: number): string {
-  return base64URL(crypto.getRandomValues(new Uint8Array(byteLength))).toLowerCase();
-}
-
-function base64URL(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function timingSafeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let index = 0; index < left.length; index++) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  return difference === 0;
-}
-
 function validateInput(raw: unknown): SmtpInput {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new SmtpFailure("input", "请求内容不正确");
   const value = raw as Record<string, unknown>;
@@ -339,14 +211,16 @@ function validateInput(raw: unknown): SmtpInput {
     return result;
   };
   const host = clean("host", 253).toLowerCase();
-  if (!isDomain(host)) throw new SmtpFailure("policy", "在线版只允许公网 SMTP 域名", "不能使用 IP 地址、localhost 或格式不正确的主机名。");
+  if (!isDomain(host)) throw new SmtpFailure("policy", "云端服务只允许公网 SMTP 域名", "不能使用 IP 地址、localhost 或格式不正确的主机名。");
   const security = value.security;
   const port = Number(value.port);
-  if (security !== "starttls" && security !== "ssl") throw new SmtpFailure("policy", "在线版只支持加密 SMTP");
+  if (security !== "starttls" && security !== "ssl") throw new SmtpFailure("policy", "云端服务只支持加密 SMTP");
   if ((security === "starttls" && port !== 587) || (security === "ssl" && port !== 465)) {
-    throw new SmtpFailure("policy", "在线版仅允许标准 SMTP 提交端口", "STARTTLS 使用 587，SSL/TLS 使用 465。自定义端口请使用 Windows 客户端。");
+    throw new SmtpFailure("policy", "云端服务仅允许标准 SMTP 提交端口", "STARTTLS 使用 587，SSL/TLS 使用 465。");
   }
   const from = clean("from", 320);
+  const fromName = cleanOptionalDisplayName(value.fromName);
+  const unsubscribe = cleanOptionalUnsubscribe(value.unsubscribe);
   const to = clean("to", 320);
   if (!isMailbox(from)) throw new SmtpFailure("input", "发件人格式不正确");
   if (!isMailbox(to)) throw new SmtpFailure("input", "收件人格式不正确");
@@ -358,11 +232,33 @@ function validateInput(raw: unknown): SmtpInput {
     host, port, security,
     username: clean("username", 320),
     password,
-    from, to,
+    from, fromName, unsubscribe, to,
     subject: clean("subject", 998),
     message,
     allowInvalidCert: false,
   };
+}
+
+function cleanOptionalDisplayName(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string") throw new SmtpFailure("input", "发件人显示名格式不正确");
+  const name = value.trim();
+  if (name.length > 128 || encoder.encode(name).byteLength > 256 || /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/.test(name)) {
+    throw new SmtpFailure("input", "发件人显示名格式不正确");
+  }
+  return name;
+}
+
+function cleanOptionalUnsubscribe(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string" || value.length > 512 || /[\u0000-\u001F\u007F-\u009F]/.test(value)) {
+    throw new SmtpFailure("input", "退订地址格式不正确");
+  }
+  let url: URL;
+  try { url = new URL(value.trim()); } catch { throw new SmtpFailure("input", "退订地址格式不正确"); }
+  if (url.protocol === "mailto:" && isMailbox(decodeURIComponent(url.pathname))) return `mailto:${decodeURIComponent(url.pathname)}`;
+  if (url.protocol === "https:" && isDomain(url.hostname)) return url.toString();
+  throw new SmtpFailure("input", "退订地址仅支持有效的 HTTPS 地址或 mailto 邮箱");
 }
 
 async function assertPublicHost(host: string): Promise<void> {
@@ -370,7 +266,7 @@ async function assertPublicHost(host: string): Promise<void> {
   const addresses = answers.flat();
   if (addresses.length === 0) throw new SmtpFailure("connect", "找不到 SMTP 服务器", "公网 DNS 未返回 A 或 AAAA 记录。");
   if (addresses.some((address) => !isPublicAddress(address))) {
-    throw new SmtpFailure("policy", "在线版不能连接私网或保留地址", "请使用 Windows 客户端测试内网 SMTP 服务。");
+    throw new SmtpFailure("policy", "云端服务不能连接私网或保留地址", "请使用可从公网访问的 SMTP 服务器。");
   }
 }
 
@@ -477,15 +373,52 @@ async function authenticate(session: SmtpSession, capabilities: string, username
 }
 
 function buildMessage(input: SmtpInput): string {
-  const subject = /^[\x20-\x7e]*$/.test(input.subject) ? input.subject : `=?UTF-8?B?${encodeBase64(input.subject)}?=`;
-  const body = input.message.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map((line) => line.startsWith(".") ? "." + line : line).join("\r\n");
-  return [
+  const subject = encodeHeaderText(input.subject);
+  const from = input.fromName ? `${encodeHeaderPhrase(input.fromName)} <${input.from}>` : `<${input.from}>`;
+  const plain = input.message.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n/g, "\r\n");
+  const html = escapeHTML(input.message).replace(/\r\n|\r|\n/g, "<br>\r\n");
+  const boundary = `=_smtp_tester_${crypto.randomUUID().replace(/-/g, "")}`;
+  const headers = [
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${crypto.randomUUID()}@${input.host}>`,
-    `From: <${input.from}>`, `To: <${input.to}>`, `Subject: ${subject}`,
-    "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit",
-    "X-Mailer: SMTP Tester Online", "", body,
-  ].join("\r\n");
+    `From: ${from}`, `To: <${input.to}>`, `Subject: ${subject}`,
+    ...(input.unsubscribe ? [`List-Unsubscribe: <${input.unsubscribe}>`] : []),
+    "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "X-Mailer: SMTP Tester Online", "",
+  ];
+  const body = [
+    `--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", plain,
+    `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "",
+    "<!doctype html>", `<html lang="zh-CN"><body>${html}</body></html>`, `--${boundary}--`, "",
+  ];
+  return [...headers, ...body].join("\r\n").replace(/(^|\r\n)\./g, "$1..");
+}
+
+function encodeHeaderText(value: string): string {
+  return /^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${encodeBase64(value)}?=`;
+}
+
+function encodeHeaderPhrase(value: string): string {
+  if (/^[\x20-\x7e]*$/.test(value)) return `"${value.replace(/([\\"])/g, "\\$1")}"`;
+  return encodeRFC2047Words(value);
+}
+
+function encodeRFC2047Words(value: string): string {
+  const chunks: string[] = [];
+  let chunk = "";
+  let byteLength = 0;
+  for (const character of value) {
+    const characterBytes = encoder.encode(character).byteLength;
+    if (byteLength + characterBytes > 45 && chunk) {
+      chunks.push(`=?UTF-8?B?${encodeBase64(chunk)}?=`);
+      chunk = "";
+      byteLength = 0;
+    }
+    chunk += character;
+    byteLength += characterBytes;
+  }
+  if (chunk) chunks.push(`=?UTF-8?B?${encodeBase64(chunk)}?=`);
+  return chunks.join(" ");
 }
 
 function encodeBase64(value: string): string {
@@ -509,7 +442,7 @@ function explainError(error: unknown): { stage: string; message: string; detail:
   } else if (/\b535\b/.test(lower) || lower.includes("authentication") || lower.includes("auth failed")) {
     stage = "auth"; message = "SMTP 账号认证失败"; detail = "请确认账号、密码或授权码是否正确，并检查服务器是否允许 SMTP AUTH。";
   } else if (lower.includes("certificate") || lower.includes("tls")) {
-    stage = "tls"; message = "TLS 加密协商或证书校验失败"; detail = "在线版始终严格校验证书。自签名证书请使用 Windows 客户端进行临时排查。";
+    stage = "tls"; message = "TLS 加密协商或证书校验失败"; detail = "云端服务始终严格校验证书；请使用受信任证书后重试。";
   } else if (lower.includes("timeout") || lower.includes("超时")) {
     message = "连接或等待 SMTP 响应超时"; detail = "请检查 SMTP 服务是否允许来自 Cloudflare 网络的 465/587 端口连接。";
   }
@@ -522,7 +455,7 @@ function validOrigin(request: Request): boolean {
 }
 
 function json(payload: unknown, status = 200): Response {
-  return withSecurityHeaders(new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } }));
+  return withSecurityHeaders(new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow, noarchive" } }));
 }
 
 function text(body: string, contentType: string): Response {

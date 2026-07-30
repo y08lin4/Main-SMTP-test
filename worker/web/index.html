@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="开源 SMTP 发信测试器，支持本机 Windows 客户端和 Cloudflare 在线测试。">
+  <meta name="description" content="基于 Cloudflare 的在线 SMTP 发信测试器，用于验证连接、TLS 与认证配置。">
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:site_name" content="SMTP 发信测试器">
   <meta property="og:title" content="SMTP 发信测试器">
-  <meta property="og:description" content="在线验证 SMTP 连接、TLS、认证、发件人与中继配置，也可下载开源 Windows 客户端。">
+  <meta property="og:description" content="在线验证 SMTP 连接、TLS、认证、发件人与中继配置。">
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <title>SMTP 发信测试器</title>
@@ -92,6 +92,7 @@
     .server-grid { grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, .8fr); }
     .two-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .field { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+    .field.wide { grid-column: 1 / -1; }
     .field > span { color: oklch(36% 0.03 255); font-size: 13px; font-weight: 650; }
     .field input, .field select, .field textarea {
       width: 100%; min-height: 46px; border: 1px solid var(--line-strong); border-radius: 7px;
@@ -115,6 +116,7 @@
     .check-copy { display: flex; flex-direction: column; }
     .check-copy small { color: var(--muted); font-size: 12px; font-weight: 400; }
     .actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 20px; }
+    .action-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
     .reset, .send { min-height: 46px; border-radius: 7px; cursor: pointer; font-weight: 700; transition: background .16s ease-out, border-color .16s ease-out, transform .16s ease-out; }
     .reset { padding: 0 12px; border: 1px solid transparent; background: transparent; color: var(--blue-dark); }
     .reset:hover { background: var(--blue-soft); }
@@ -183,6 +185,7 @@
       .panel-heading { margin-bottom: 18px; }
       .actions { align-items: stretch; flex-direction: column-reverse; }
       .send { width: 100%; }
+      .action-secondary { justify-content: center; }
       .reset { align-self: center; }
       .footer { align-items: flex-start; flex-direction: column; gap: 7px; }
     }
@@ -196,23 +199,20 @@
   <main id="main" class="app">
     <header class="header">
       <div class="brand">
-        <div class="brand-line"><span class="brand-dot"></span><span>开源 SMTP 诊断工具</span></div>
         <h1>SMTP 发信测试器</h1>
-        <p>配置 SMTP 账号并发送一封测试邮件，快速定位连接、加密、认证与中继问题。</p>
+        <p>验证 SMTP 连接、加密、认证与发信配置。</p>
       </div>
       <div class="header-side">
-        <div class="mode-badge"><i></i><span id="mode-label">正在识别运行环境</span></div>
+        <div class="mode-badge"><i></i><span id="mode-label">Cloudflare 在线节点</span></div>
         <nav class="header-links" aria-label="项目链接">
           <a id="github-link" class="header-link" href="#" target="_blank" rel="noreferrer" hidden>查看 GitHub 源码</a>
-          <a id="download-link" class="header-link" href="#" hidden>下载 Windows 客户端</a>
-          <a id="deliverability-link" class="header-link" href="/deliverability.html" hidden>投递质量检测</a>
         </nav>
       </div>
     </header>
 
     <section class="notice" aria-labelledby="notice-title">
       <span class="notice-mark">i</span>
-      <div><strong id="notice-title">正在加载运行环境</strong><p id="notice-copy">请稍候，工具正在确认测试连接的发起位置。</p></div>
+      <div><strong id="notice-title">测试连接从 Cloudflare 网络发起</strong><p id="notice-copy">仅支持公网 SMTP 域名与 465、587 加密端口。</p></div>
     </section>
 
     <div class="grid">
@@ -228,7 +228,7 @@
             <div class="field-grid server-grid">
               <label class="field"><span>SMTP 服务器 <b>*</b></span><input id="host" name="host" autocomplete="off" required maxlength="253" placeholder="smtp.example.com"></label>
               <label class="field"><span>端口 <b>*</b></span><input id="port" name="port" inputmode="numeric" required min="1" max="65535" type="number" value="587"></label>
-              <label class="field"><span>加密方式 <b>*</b></span><select id="security" name="security"><option value="starttls">STARTTLS（常用 587）</option><option value="ssl">SSL/TLS（常用 465）</option><option id="plain-option" value="plain">无加密（仅本地诊断）</option></select></label>
+              <label class="field"><span>加密方式 <b>*</b></span><select id="security" name="security"><option value="starttls">STARTTLS（常用 587）</option><option value="ssl">SSL/TLS（常用 465）</option></select></label>
             </div>
           </fieldset>
 
@@ -240,7 +240,8 @@
               <label class="field"><span>登录账号 <b>*</b></span><input id="username" name="username" autocomplete="username" required maxlength="320" placeholder="user@example.com"></label>
               <label class="field"><span>密码或授权码 <b>*</b></span><span class="password"><input id="password" name="password" autocomplete="new-password" required type="password" maxlength="1024" placeholder="请输入 SMTP 密码"><button id="password-toggle" class="password-toggle" type="button" aria-controls="password" aria-pressed="false">显示</button></span></label>
               <label class="field"><span>发件人 <b>*</b></span><input id="from" name="from" autocomplete="off" required type="email" maxlength="320" placeholder="user@example.com"></label>
-              <label class="field"><span>收件人 <b>*</b></span><input id="to" name="to" autocomplete="off" required type="email" maxlength="320" placeholder="test@example.net"></label>
+              <label class="field"><span>发件人显示名</span><input id="fromName" name="fromName" autocomplete="name" maxlength="160" placeholder="例如：网站通知"></label>
+              <label class="field wide"><span>收件人 <b>*</b></span><input id="to" name="to" autocomplete="off" required type="email" maxlength="320" placeholder="test@example.net"></label>
             </div>
           </fieldset>
 
@@ -248,17 +249,25 @@
 
           <fieldset>
             <legend>测试邮件</legend>
-            <label class="field"><span>邮件主题 <b>*</b></span><input id="subject" name="subject" required maxlength="998" value="SMTP 测试邮件"></label>
-            <label class="field message-field"><span>邮件内容 <b>*</b></span><textarea id="message" name="message" required maxlength="65536">这是一封来自 SMTP 发信测试器的测试邮件。</textarea></label>
+            <label class="field"><span>邮件主题 <b>*</b></span><input id="subject" name="subject" required maxlength="998" value="邮件服务连通性确认"></label>
+            <label class="field message-field"><span>邮件内容 <b>*</b></span><textarea id="message" name="message" required maxlength="65536">您好：
+
+这是一封用于确认邮件服务配置的连通性测试邮件。
+如您收到此邮件，说明 SMTP 服务已接受并投递该消息。</textarea></label>
+            <label class="field message-field"><span>退订地址（可选，仅订阅或群发邮件）</span><input id="unsubscribe" name="unsubscribe" inputmode="url" maxlength="512" placeholder="https://example.com/unsubscribe 或 mailto:unsubscribe@example.com"><small>仅填写真实可用的退订地址；普通单次测试无需填写。</small></label>
           </fieldset>
 
-          <label id="cert-row" class="check-row"><input id="allowInvalidCert" name="allowInvalidCert" type="checkbox"><span class="check-copy">忽略 TLS 证书错误<small>仅用于确认是自签名证书的临时排查</small></span></label>
-          <label id="consent-row" class="check-row" hidden><input id="onlineConsent" name="onlineConsent" type="checkbox"><span class="check-copy">我了解凭据将发送到在线测试节点 <b>*</b><small>服务不会保存凭据；敏感或生产账号建议使用本地客户端</small></span></label>
+          <label id="consent-row" class="check-row"><input id="onlineConsent" name="onlineConsent" type="checkbox"><span class="check-copy">我了解凭据仅用于本次在线测试，服务不会保存 <b>*</b></span></label>
 
           <div class="actions">
-            <button id="reset" class="reset" type="button">重置配置</button>
+            <div class="action-secondary">
+              <button id="save-settings" class="reset" type="button">保存此浏览器</button>
+              <button id="clear-settings" class="reset" type="button">清除已保存</button>
+              <button id="reset" class="reset" type="button">重置</button>
+            </div>
             <button id="send" class="send" type="submit"><span id="send-icon" aria-hidden="true">→</span><span id="send-label">发送测试邮件</span></button>
           </div>
+          <p id="save-status" class="sr-only" aria-live="polite"></p>
         </form>
       </section>
 
@@ -300,12 +309,12 @@
 
     <footer class="footer">
       <span id="version-label">SMTP Tester</span>
-      <span><a href="/privacy.html">隐私与安全</a> · 开源可审计 · 密码不落盘 · 测试结果不代表邮件最终进入收件箱</span>
+      <span><a href="/privacy.html">隐私与安全</a> · 开源可审计 · 密码不保存</span>
     </footer>
   </main>
 
   <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"SoftwareApplication","name":"SMTP 发信测试器","applicationCategory":"DeveloperApplication","operatingSystem":"Web, Windows","description":"用于验证 SMTP 连接、TLS、认证、发件人与中继配置的开源诊断工具。","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
+    {"@context":"https://schema.org","@type":"WebApplication","name":"SMTP 发信测试器","applicationCategory":"DeveloperApplication","operatingSystem":"Web","description":"基于 Cloudflare 的在线 SMTP 发信测试器，用于验证连接、TLS、认证、发件人与中继配置。","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
   </script>
 
   <script>
@@ -315,7 +324,9 @@
       const send = $("send");
       const panel = $("result-panel");
       const steps = { connect: $("step-connect"), auth: $("step-auth"), done: $("step-done") };
-      let meta = { mode: "local", version: "dev", githubUrl: "https://github.com/y08lin4/Main-SMTP-test", downloadUrl: "https://github.com/y08lin4/Main-SMTP-test/releases/latest/download/SMTP-Tester-Windows-x64.exe", allowPlain: true, allowCustomPort: true, deliverabilityEnabled: false };
+      const savedSettingsKey = "smtp-tester-online-config-v1";
+      const savedSettingIds = ["host", "port", "security", "username", "from", "fromName"];
+      let meta = { mode: "online", version: "dev", githubUrl: "https://github.com/y08lin4/Main-SMTP-test" };
       let spinnerTimer = 0;
       const stageNames = { input: "检查配置", connect: "建立连接", tls: "TLS 加密", auth: "SMTP 认证", sender: "验证发件人", recipient: "验证收件人", data: "提交邮件", done: "发送完成", policy: "在线安全策略", rate: "请求频率限制" };
 
@@ -378,31 +389,18 @@
 
       function applyMeta(next) {
         meta = { ...meta, ...next };
-        const online = meta.mode === "online";
-        $("mode-label").textContent = online ? "Cloudflare 在线节点" : "Windows 本机模式";
-        $("notice-title").textContent = online ? "测试连接从 Cloudflare 网络发起" : "测试连接从这台电脑发起";
-        $("notice-copy").textContent = online
-          ? "在线版仅允许公网 SMTP 域名及 465/587 端口，适合快速验证服务端配置；本机 DNS、防火墙和网络问题请使用 Windows 客户端。"
-          : "本机版会测试这台 Windows 电脑到 SMTP 服务器的真实网络路径，并支持自定义端口与自签名证书排查。";
-        $("result-origin").textContent = online ? "连接来源：Cloudflare 网络" : "连接来源：当前电脑";
-        $("security-title").textContent = online ? "在线凭据处理" : "本地凭据处理";
-        $("security-copy").textContent = online ? "凭据经 HTTPS 传入 Worker，仅用于当前会话，不会存储或写入日志。" : "账号和密码只在本机内存中用于当前会话，不会写入文件。";
-        $("cert-row").hidden = online;
-        $("consent-row").hidden = !online;
-        $("plain-option").disabled = !meta.allowPlain;
-        if (!meta.allowPlain && $("security").value === "plain") $("security").value = "starttls";
-        $("port").readOnly = !meta.allowCustomPort;
-        $("version-label").textContent = "SMTP Tester " + (meta.version || "dev") + " · " + (online ? "Online" : "Local");
+        $("mode-label").textContent = "Cloudflare 在线节点";
+        $("result-origin").textContent = "连接来源：Cloudflare 网络";
+        $("security-title").textContent = "在线凭据处理";
+        $("security-copy").textContent = "凭据经 HTTPS 传入 Worker，仅用于当前会话，不会存储或写入日志。";
+        $("version-label").textContent = "SMTP Tester " + (meta.version || "dev") + " · Cloudflare";
         if (meta.githubUrl) { $("github-link").href = meta.githubUrl; $("github-link").hidden = false; }
-        if (meta.downloadUrl) { $("download-link").href = meta.downloadUrl; $("download-link").hidden = false; }
-        $("deliverability-link").hidden = !meta.deliverabilityEnabled;
       }
 
       $("security").addEventListener("change", (event) => {
         const value = event.target.value;
-        if (!meta.allowCustomPort || (value === "ssl" && $("port").value === "587")) $("port").value = value === "ssl" ? "465" : "587";
+        if (value === "ssl" && $("port").value === "587") $("port").value = "465";
         else if (value === "starttls" && $("port").value === "465") $("port").value = "587";
-        else if (value === "plain" && $("port").value === "587") $("port").value = "25";
       });
       $("password-toggle").addEventListener("click", (event) => {
         const show = $("password").type === "password";
@@ -414,18 +412,51 @@
         form.reset();
         $("port").value = "587";
         $("security").value = "starttls";
-        $("subject").value = "SMTP 测试邮件";
-        $("message").value = "这是一封来自 SMTP 发信测试器的测试邮件。";
+        $("subject").value = "邮件服务连通性确认";
+        $("message").value = "您好：\n\n这是一封用于确认邮件服务配置的连通性测试邮件。\n如您收到此邮件，说明 SMTP 服务已接受并投递该消息。";
+        $("unsubscribe").value = "";
         $("password").type = "password";
         $("password-toggle").textContent = "显示";
         $("password-toggle").setAttribute("aria-pressed", "false");
         setStatus("idle");
       });
+      function reportSavedSettings(message) {
+        $("save-status").textContent = message;
+      }
+      function restoreSavedSettings() {
+        try {
+          const saved = JSON.parse(window.localStorage.getItem(savedSettingsKey) || "null");
+          if (!saved || typeof saved !== "object") return;
+          savedSettingIds.forEach((id) => {
+            if (typeof saved[id] === "string" && $(id)) $(id).value = saved[id];
+          });
+          reportSavedSettings("已恢复此浏览器保存的服务器与发件人配置。");
+        } catch (_) {
+          reportSavedSettings("无法读取已保存的配置。");
+        }
+      }
+      $("save-settings").addEventListener("click", () => {
+        try {
+          const settings = Object.fromEntries(savedSettingIds.map((id) => [id, $(id).value.trim()]));
+          window.localStorage.setItem(savedSettingsKey, JSON.stringify(settings));
+          reportSavedSettings("已保存服务器、账号和发件人配置；密码、收件人和邮件内容不会保存。");
+        } catch (_) {
+          reportSavedSettings("无法保存配置，请检查浏览器的本地存储权限。");
+        }
+      });
+      $("clear-settings").addEventListener("click", () => {
+        try {
+          window.localStorage.removeItem(savedSettingsKey);
+          reportSavedSettings("已清除本浏览器保存的配置。");
+        } catch (_) {
+          reportSavedSettings("无法清除已保存的配置。");
+        }
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (!form.reportValidity()) return;
-        if (meta.mode === "online" && !$("onlineConsent").checked) {
-          setStatus("error", { stage: "input", message: "请先确认在线凭据处理方式", detail: "勾选表单下方的确认项，或下载 Windows 客户端在本机完成测试。" });
+        if (!$("onlineConsent").checked) {
+          setStatus("error", { stage: "input", message: "请先确认在线凭据处理方式", detail: "请勾选表单下方的确认项后重试。" });
           $("onlineConsent").focus();
           return;
         }
@@ -437,8 +468,9 @@
         const payload = {
           host: $("host").value.trim(), port: Number($("port").value), security: $("security").value,
           username: $("username").value.trim(), password: $("password").value, from: $("from").value.trim(),
+          fromName: $("fromName").value.trim(),
+          unsubscribe: $("unsubscribe").value.trim(),
           to: $("to").value.trim(), subject: $("subject").value, message: $("message").value,
-          allowInvalidCert: meta.mode === "local" && $("allowInvalidCert").checked
         };
         try {
           const response = await fetch("/api/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -457,6 +489,7 @@
       });
 
       setStatus("idle");
+      restoreSavedSettings();
       fetch("/api/meta", { headers: { "Accept": "application/json" } })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error("meta")))
         .then(applyMeta)
